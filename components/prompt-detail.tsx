@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Copy, Heart, Eye, Volume2, VolumeX, ArrowLeft, Globe, Lock, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -18,6 +18,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
+import { useMutation } from "convex/react"
+import { api } from "@/convex/_generated/api"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -59,9 +61,35 @@ export function PromptDetail({ prompt, isOwner = false, initialStatus = "public"
   const { toast } = useToast()
   const router = useRouter()
 
+  const copyMutation = useMutation(api.events.copy)
+  const voteMutation = useMutation(api.votes.toggle)
+  const viewMutation = useMutation(api.events.view)
+
+  // Track view when component mounts
+  useEffect(() => {
+    const trackView = async () => {
+      try {
+        const { ipHash } = await fetch("/api/iphash").then((r) => r.json())
+        await viewMutation({ promptId: prompt.id as any, ipHash })
+      } catch (error) {
+        console.error("Failed to track view:", error)
+      }
+    }
+    trackView()
+  }, [prompt.id, viewMutation])
+
   const handleCopy = async () => {
     await navigator.clipboard.writeText(prompt.prompt)
     setLocalCopyCount((prev) => prev + 1)
+
+    // Track copy in Convex
+    try {
+      const { ipHash } = await fetch("/api/iphash").then((r) => r.json())
+      await copyMutation({ promptId: prompt.id as any, ipHash })
+    } catch (error) {
+      console.error("Failed to log copy:", error)
+    }
+
     toast({
       title: "Copied!",
       description: "Prompt copied to clipboard",
@@ -69,15 +97,28 @@ export function PromptDetail({ prompt, isOwner = false, initialStatus = "public"
     })
   }
 
-  const handleUpvote = () => {
+  const handleUpvote = async () => {
     if (!hasUpvoted) {
-      setLocalUpvotes((prev) => prev + 1)
-      setHasUpvoted(true)
-      toast({
-        title: "Upvoted!",
-        description: "Thanks for your support",
-        duration: 2000,
-      })
+      try {
+        // For now, use a placeholder user ID - this will be replaced with real auth
+        const fakeUserId = prompt.id // placeholder
+        const { delta } = await voteMutation({ promptId: prompt.id as any, userId: fakeUserId as any })
+        setLocalUpvotes((prev) => prev + delta)
+        setHasUpvoted(delta > 0)
+
+        toast({
+          title: "Upvoted!",
+          description: "Thanks for your support",
+          duration: 2000,
+        })
+      } catch (error) {
+        console.error("Failed to vote:", error)
+        toast({
+          title: "Error",
+          description: "Failed to vote. Please try again.",
+          variant: "destructive"
+        })
+      }
     }
   }
 
@@ -305,9 +346,8 @@ export function PromptDetail({ prompt, isOwner = false, initialStatus = "public"
             <Button
               onClick={handleUpvote}
               variant={hasUpvoted ? "default" : "outline"}
-              className={`flex-1 ${
-                hasUpvoted ? "bg-primary text-primary-foreground" : "border-border text-foreground hover:bg-secondary"
-              }`}
+              className={`flex-1 ${hasUpvoted ? "bg-primary text-primary-foreground" : "border-border text-foreground hover:bg-secondary"
+                }`}
             >
               <Heart className={`mr-2 h-4 w-4 ${hasUpvoted ? "fill-current" : ""}`} />
               {hasUpvoted ? "Upvoted" : "Upvote"}

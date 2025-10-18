@@ -8,6 +8,7 @@ import { Heart } from "lucide-react"
 const mockFavorites = [
   {
     id: "1",
+    slug: "cinematic-portrait",
     title: "Cinematic Portrait",
     prompt: "A cinematic portrait of a woman with flowing hair in golden hour lighting...",
     videoUrl: "/diverse-woman-portrait.png",
@@ -22,6 +23,7 @@ const mockFavorites = [
   },
   {
     id: "2",
+    slug: "urban-exploration",
     title: "Urban Exploration",
     prompt: "A man walking through a neon-lit cyberpunk city at night...",
     videoUrl: "/man.jpg",
@@ -36,6 +38,7 @@ const mockFavorites = [
   },
   {
     id: "3",
+    slug: "nature-documentary",
     title: "Nature Documentary",
     prompt: "A woman observing wildlife in a lush rainforest environment...",
     videoUrl: "/woman-2.jpg",
@@ -120,6 +123,7 @@ export default function FavoritesPage() {
             <PromptCard
               key={prompt.id}
               id={prompt.id}
+              slug={prompt.slug || prompt.id} // Use slug if available, fallback to id
               title={prompt.title}
               prompt={prompt.prompt}
               creator={prompt.creator}

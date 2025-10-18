@@ -16,6 +16,7 @@ import { AuthModal } from "./auth-modal"
 
 interface PromptCardProps {
   id: string
+  slug: string
   title: string
   prompt: string
   creator: {
@@ -32,6 +33,7 @@ interface PromptCardProps {
 
 export function PromptCard({
   id,
+  slug,
   title,
   prompt,
   creator,
@@ -238,7 +240,7 @@ export function PromptCard({
                   asChild
                   className="border-border text-foreground hover:bg-secondary bg-transparent"
                 >
-                  <Link href={`/p/${id}`}>
+                  <Link href={`/p/${slug}`}>
                     <ExternalLink className="h-4 w-4" />
                   </Link>
                 </Button>

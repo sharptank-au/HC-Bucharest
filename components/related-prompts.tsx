@@ -6,6 +6,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 interface RelatedPromptsProps {
   prompts: Array<{
     id: string
+    slug: string
     title: string
     prompt: string
     creator: {

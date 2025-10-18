@@ -91,6 +91,7 @@ export default function Home() {
                 <PromptCard
                   key={prompt._id}
                   id={prompt._id}
+                  slug={prompt.slug}
                   title={prompt.title}
                   prompt={prompt.prompt}
                   creator={{
