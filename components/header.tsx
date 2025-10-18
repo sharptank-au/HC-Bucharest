@@ -1,6 +1,6 @@
 "use client"
 
-import { Sparkles } from "lucide-react"
+import { Sparkles, Wrench } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -82,9 +82,20 @@ export function Header() {
             </Button>
           ) : (
             <>
-              <Link href="/submit" className="hidden md:block">
-                <Button className="bg-primary text-primary-foreground hover:bg-primary/90">Submit Prompt</Button>
-              </Link>
+              <div className="hidden md:flex gap-2">
+                <Link href="/build">
+                  <Button variant="outline" className="border-border text-foreground hover:bg-secondary">
+                    <Wrench className="h-4 w-4 mr-2" />
+                    Build Prompt
+                  </Button>
+                </Link>
+                <Link href="/submit">
+                  <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+                    Submit Prompt
+                  </Button>
+                </Link>
+
+              </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 md:h-9 md:w-9 rounded-full flex-shrink-0">
@@ -99,6 +110,12 @@ export function Header() {
                 <DropdownMenuContent align="end" className="w-56 bg-popover text-popover-foreground border-border">
                   <Link href="/submit">
                     <DropdownMenuItem className="md:hidden">Submit Prompt</DropdownMenuItem>
+                  </Link>
+                  <Link href="/build">
+                    <DropdownMenuItem className="md:hidden">
+                      <Wrench className="h-4 w-4 mr-2" />
+                      Build Prompt
+                    </DropdownMenuItem>
                   </Link>
                   <Link href="/submissions">
                     <DropdownMenuItem>My Submissions</DropdownMenuItem>
