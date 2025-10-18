@@ -13,8 +13,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-
-const availableCategories = ["Nature", "Urban", "Abstract", "Animals", "Technology", "Fantasy", "Cinematic", "Portrait"]
+import { useMutation, useQuery } from "convex/react"
+import { api } from "@/convex/_generated/api"
+import { slugify } from "@/lib/slug"
 
 export default function SubmitPage() {
   const router = useRouter()
@@ -30,9 +31,14 @@ export default function SubmitPage() {
     camera: "",
     seed: "",
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Get categories from Convex
+  const categories = useQuery(api.categories.list) || []
+  const createPrompt = useMutation(api.prompts.create)
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!title || !prompt) {
@@ -44,14 +50,67 @@ export default function SubmitPage() {
       return
     }
 
-    // In a real app, this would submit to an API
-    toast({
-      title: "Prompt submitted!",
-      description: "Your prompt has been added to the library",
-    })
+    if (selectedCategories.length === 0) {
+      toast({
+        title: "Categories required",
+        description: "Please select at least one category",
+        variant: "destructive",
+      })
+      return
+    }
 
-    // Navigate back to home
-    router.push("/")
+    setIsSubmitting(true)
+
+    try {
+      // Generate slug from title
+      const baseSlug = slugify(title)
+      const slug = baseSlug
+
+      // Map category names to IDs
+      const categoryIds = selectedCategories
+        .map(catName => categories.find(cat => cat.name === catName)?._id)
+        .filter(Boolean) as any[]
+
+      if (categoryIds.length === 0) {
+        throw new Error("Invalid categories selected")
+      }
+
+      // Prepare metadata
+      const meta = {
+        aspectRatio: metadata.aspectRatio || undefined,
+        duration: metadata.duration || undefined,
+        camera: metadata.camera || undefined,
+        seed: metadata.seed || undefined,
+      }
+
+      // Submit to Convex
+      await createPrompt({
+        title: title.trim(),
+        prompt: prompt.trim(),
+        videoUrl: videoUrl.trim() || undefined,
+        notes: notes.trim() || undefined,
+        meta: Object.keys(meta).some(key => meta[key as keyof typeof meta]) ? meta : undefined,
+        categoryIds,
+        slug,
+      })
+
+      toast({
+        title: "Prompt submitted!",
+        description: "Your prompt has been added to the library",
+      })
+
+      // Navigate back to home
+      router.push("/")
+    } catch (error) {
+      console.error("Failed to submit prompt:", error)
+      toast({
+        title: "Submission failed",
+        description: "There was an error submitting your prompt. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const toggleCategory = (category: string) => {
@@ -111,20 +170,23 @@ export default function SubmitPage() {
           <div className="space-y-3">
             <Label className="text-foreground text-base">Categories</Label>
             <div className="flex flex-wrap gap-2">
-              {availableCategories.map((category) => (
+              {categories.map((category) => (
                 <Badge
-                  key={category}
-                  variant={selectedCategories.includes(category) ? "default" : "outline"}
-                  className={`cursor-pointer transition-colors text-sm py-1.5 px-3 ${selectedCategories.includes(category)
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-border"
+                  key={category._id}
+                  variant={selectedCategories.includes(category.name) ? "default" : "outline"}
+                  className={`cursor-pointer transition-colors text-sm py-1.5 px-3 ${selectedCategories.includes(category.name)
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-border"
                     }`}
-                  onClick={() => toggleCategory(category)}
+                  onClick={() => toggleCategory(category.name)}
                 >
-                  {category}
+                  {category.name}
                 </Badge>
               ))}
             </div>
+            {categories.length === 0 && (
+              <p className="text-sm text-muted-foreground">Loading categories...</p>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -134,8 +196,8 @@ export default function SubmitPage() {
                 type="button"
                 onClick={() => setPromptType("public")}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition-all ${promptType === "public"
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-secondary text-muted-foreground hover:border-border/80"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-secondary text-muted-foreground hover:border-border/80"
                   }`}
               >
                 <Globe className="h-5 w-5" />
@@ -145,8 +207,8 @@ export default function SubmitPage() {
                 type="button"
                 onClick={() => setPromptType("private")}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 transition-all ${promptType === "private"
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-secondary text-muted-foreground hover:border-border/80"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-secondary text-muted-foreground hover:border-border/80"
                   }`}
               >
                 <Lock className="h-5 w-5" />
@@ -263,9 +325,10 @@ export default function SubmitPage() {
             </Button>
             <Button
               type="submit"
-              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-12 text-base"
+              disabled={isSubmitting}
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-12 text-base disabled:opacity-50"
             >
-              Submit Prompt
+              {isSubmitting ? "Submitting..." : "Submit Prompt"}
             </Button>
           </div>
         </form>
