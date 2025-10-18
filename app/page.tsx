@@ -14,8 +14,22 @@ export default function Home() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { isSignedIn } = useAuth()
+
+  // Get all filter parameters from URL
   const q = searchParams.get("q") || undefined
   const sort = (searchParams.get("sort") as any) || "trending"
+  const categoriesParam = searchParams.get("categories")
+  const hasVideo = searchParams.get("hasVideo") === "true"
+  const myFavorites = searchParams.get("myFavorites") === "true"
+
+  // Get categories from Convex to convert names to IDs
+  const categories = useQuery(api.categories.list) || []
+  const categoryNames = categoriesParam ? categoriesParam.split(",") : []
+  const categoryIds = categoryNames.length > 0
+    ? categories
+      .filter(cat => categoryNames.includes(cat.name))
+      .map(cat => cat._id)
+    : undefined
 
   const clearSearch = () => {
     router.push("/")
@@ -24,7 +38,10 @@ export default function Home() {
   const promptsData = useQuery(api.prompts.list, {
     q,
     sort,
-    limit: 24
+    categoryIds: categoryIds as any,
+    limit: 24,
+    hasVideo: hasVideo || undefined,
+    myFavorites: myFavorites || undefined
   })
 
   const user = useQuery(api.users.me)
@@ -63,14 +80,17 @@ export default function Home() {
             {/* Mobile filter button is inside FiltersSidebar */}
 
             {/* Search Results Header */}
-            {q && (
+            {(q || categoryNames.length > 0 || hasVideo || myFavorites) && (
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">
-                    Search results for "{q}"
+                    {q ? `Search results for "${q}"` : "Filtered results"}
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     {prompts?.length || 0} prompt{prompts?.length !== 1 ? 's' : ''} found
+                    {categoryNames.length > 0 && ` • Categories: ${categoryNames.join(", ")}`}
+                    {hasVideo && " • Has video"}
+                    {myFavorites && " • My favorites"}
                   </p>
                 </div>
                 <Button
@@ -80,7 +100,7 @@ export default function Home() {
                   className="flex items-center gap-2"
                 >
                   <X className="h-4 w-4" />
-                  Clear search
+                  Clear filters
                 </Button>
               </div>
             )}

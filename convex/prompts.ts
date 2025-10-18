@@ -14,9 +14,11 @@ export const list = query({
         categoryIds: v.optional(v.array(v.id("categories"))),
         sort: v.optional(v.string()),
         limit: v.optional(v.number()),
-        cursor: v.optional(v.string())
+        cursor: v.optional(v.string()),
+        hasVideo: v.optional(v.boolean()),
+        myFavorites: v.optional(v.boolean())
     },
-    handler: async ({ db }, { q, categoryIds, sort = "trending", limit = 24, cursor }) => {
+    handler: async ({ db, auth }, { q, categoryIds, sort = "trending", limit = 24, cursor, hasVideo, myFavorites }) => {
         let res;
         if (q && q.trim()) {
             res = await db
@@ -34,8 +36,23 @@ export const list = query({
         }
         let items = res.page;
 
+        // Apply filters
         if (categoryIds?.length) {
             items = items.filter((p) => p.categoryIds.some((id: any) => categoryIds.includes(id)));
+        }
+
+        if (hasVideo) {
+            items = items.filter((p) => p.videoUrl && p.videoUrl.trim() !== "");
+        }
+
+        if (myFavorites) {
+            // For now, we'll need to implement favorites functionality
+            // This is a placeholder - you'll need to add favorites table and logic
+            const identity = await auth.getUserIdentity();
+            if (identity) {
+                // TODO: Implement favorites filtering
+                // items = items.filter((p) => isFavorite(p._id, identity.subject));
+            }
         }
 
         items.sort((a, b) => {
