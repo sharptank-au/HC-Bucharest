@@ -10,11 +10,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/hooks/use-toast"
 import { useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
 import Link from "next/link"
 import { AuthModal } from "./auth-modal"
 
 interface PromptCardProps {
-  id: string
+  id: Id<"prompts">
   title: string
   prompt: string
   creator: {
@@ -59,7 +60,7 @@ export function PromptCard({
     // Get IP hash for rate limiting
     try {
       const { ipHash } = await fetch("/api/iphash").then((r) => r.json())
-      await copyMutation({ promptId: id as any, ipHash })
+      await copyMutation({ promptId: id, ipHash })
     } catch (error) {
       console.error("Failed to log copy:", error)
     }
@@ -80,7 +81,7 @@ export function PromptCard({
     try {
       // For now, use a placeholder user ID - this will be replaced with real auth
       const fakeUserId = id // placeholder
-      const { delta } = await voteMutation({ promptId: id as any, userId: fakeUserId as any })
+      const { delta } = await voteMutation({ promptId: id, userId: fakeUserId as any })
       setLocalUpvotes((prev) => prev + delta)
       setHasUpvoted(delta > 0)
     } catch (error) {

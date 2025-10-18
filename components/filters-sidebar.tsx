@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { Filter, ArrowUpDown, Grid3x3, Video, Heart, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -8,25 +7,46 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet"
+import { Id } from "@/convex/_generated/dataModel"
 
-const categories = [
-  { name: "Nature", count: 234 },
-  { name: "Urban", count: 189 },
-  { name: "Abstract", count: 156 },
-  { name: "Animals", count: 143 },
-  { name: "Technology", count: 98 },
-  { name: "Fantasy", count: 87 },
-]
+interface Category {
+  _id: Id<"categories">
+  name: string
+  slug: string
+  count: number
+}
 
-function FilterContent({ isMobile = false }: { isMobile?: boolean }) {
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
-  const [hasVideo, setHasVideo] = useState(false)
-  const [myFavorites, setMyFavorites] = useState(false)
+interface FilterState {
+  selectedCategories: Id<"categories">[]
+  sort: string
+  hasVideo: boolean
+  myFavorites: boolean
+}
 
-  const toggleCategory = (category: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category],
-    )
+interface FiltersSidebarProps {
+  categories: Category[]
+  filterState: FilterState
+  onFilterChange: (filters: Partial<FilterState>) => void
+}
+
+function FilterContent({ 
+  isMobile = false, 
+  categories, 
+  filterState, 
+  onFilterChange 
+}: { 
+  isMobile?: boolean
+  categories: Category[]
+  filterState: FilterState
+  onFilterChange: (filters: Partial<FilterState>) => void
+}) {
+
+  const toggleCategory = (categoryId: Id<"categories">) => {
+    const newCategories = filterState.selectedCategories.includes(categoryId)
+      ? filterState.selectedCategories.filter((id) => id !== categoryId)
+      : [...filterState.selectedCategories, categoryId]
+    
+    onFilterChange({ selectedCategories: newCategories })
   }
 
   return (
@@ -37,14 +57,14 @@ function FilterContent({ isMobile = false }: { isMobile?: boolean }) {
           <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
           <Label className="text-sm font-medium text-foreground">Sort by</Label>
         </div>
-        <Select defaultValue="trending">
+        <Select value={filterState.sort} onValueChange={(value) => onFilterChange({ sort: value })}>
           <SelectTrigger className="bg-secondary border-border text-foreground">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="bg-popover border-border">
             <SelectItem value="trending">Trending</SelectItem>
-            <SelectItem value="most-copied">Most Copied</SelectItem>
-            <SelectItem value="most-upvoted">Most Upvoted</SelectItem>
+            <SelectItem value="most_copied">Most Copied</SelectItem>
+            <SelectItem value="most_upvoted">Most Upvoted</SelectItem>
             <SelectItem value="newest">Newest</SelectItem>
           </SelectContent>
         </Select>
@@ -59,14 +79,14 @@ function FilterContent({ isMobile = false }: { isMobile?: boolean }) {
         <div className={isMobile ? "flex flex-col gap-2" : "flex flex-wrap gap-2"}>
           {categories.map((category) => (
             <Badge
-              key={category.name}
-              variant={selectedCategories.includes(category.name) ? "default" : "outline"}
+              key={category._id}
+              variant={filterState.selectedCategories.includes(category._id) ? "default" : "outline"}
               className={`cursor-pointer transition-colors ${isMobile ? "w-full justify-start" : ""} ${
-                selectedCategories.includes(category.name)
+                filterState.selectedCategories.includes(category._id)
                   ? "bg-primary text-primary-foreground hover:bg-primary/90"
                   : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-border"
               }`}
-              onClick={() => toggleCategory(category.name)}
+              onClick={() => toggleCategory(category._id)}
             >
               {category.name} ({category.count})
             </Badge>
@@ -79,8 +99,8 @@ function FilterContent({ isMobile = false }: { isMobile?: boolean }) {
         <div className="flex items-center space-x-2">
           <Checkbox
             id="has-video"
-            checked={hasVideo}
-            onCheckedChange={(checked) => setHasVideo(checked as boolean)}
+            checked={filterState.hasVideo}
+            onCheckedChange={(checked) => onFilterChange({ hasVideo: checked as boolean })}
             className="border-border data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
           />
           <Video className="h-4 w-4 text-muted-foreground" />
@@ -91,8 +111,8 @@ function FilterContent({ isMobile = false }: { isMobile?: boolean }) {
         <div className="flex items-center space-x-2">
           <Checkbox
             id="my-favorites"
-            checked={myFavorites}
-            onCheckedChange={(checked) => setMyFavorites(checked as boolean)}
+            checked={filterState.myFavorites}
+            onCheckedChange={(checked) => onFilterChange({ myFavorites: checked as boolean })}
             className="border-border data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
           />
           <Heart className="h-4 w-4 text-muted-foreground" />
@@ -103,14 +123,16 @@ function FilterContent({ isMobile = false }: { isMobile?: boolean }) {
       </div>
 
       {/* Clear filters */}
-      {(selectedCategories.length > 0 || hasVideo || myFavorites) && (
+      {(filterState.selectedCategories.length > 0 || filterState.hasVideo || filterState.myFavorites) && (
         <Button
           variant="outline"
           className="w-full border-border text-foreground hover:bg-secondary bg-transparent"
           onClick={() => {
-            setSelectedCategories([])
-            setHasVideo(false)
-            setMyFavorites(false)
+            onFilterChange({
+              selectedCategories: [],
+              hasVideo: false,
+              myFavorites: false
+            })
           }}
         >
           Clear filters
@@ -120,7 +142,7 @@ function FilterContent({ isMobile = false }: { isMobile?: boolean }) {
   )
 }
 
-export function FiltersSidebar() {
+export function FiltersSidebar({ categories, filterState, onFilterChange }: FiltersSidebarProps) {
   return (
     <>
       {/* Mobile: Sheet */}
@@ -144,7 +166,12 @@ export function FiltersSidebar() {
               </SheetClose>
             </SheetHeader>
             <div className="mt-6">
-              <FilterContent isMobile={true} />
+              <FilterContent 
+                isMobile={true} 
+                categories={categories}
+                filterState={filterState}
+                onFilterChange={onFilterChange}
+              />
             </div>
           </SheetContent>
         </Sheet>
@@ -154,7 +181,12 @@ export function FiltersSidebar() {
       <aside className="hidden lg:block w-64 shrink-0">
         <div className="sticky top-20 space-y-4">
           <h2 className="text-lg font-semibold text-foreground">Filters</h2>
-          <FilterContent isMobile={false} />
+          <FilterContent 
+            isMobile={false} 
+            categories={categories}
+            filterState={filterState}
+            onFilterChange={onFilterChange}
+          />
         </div>
       </aside>
     </>

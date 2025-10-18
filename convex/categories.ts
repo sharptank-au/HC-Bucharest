@@ -5,6 +5,31 @@ export const list = query(async ({ db }) => {
     return await db.query("categories").order("desc").collect();
 });
 
+export const listWithCounts = query(async ({ db }) => {
+    const categories = await db.query("categories").order("desc").collect();
+    
+    // Get prompt counts for each category
+    const categoriesWithCounts = await Promise.all(
+        categories.map(async (category) => {
+            const prompts = await db
+                .query("prompts")
+                .withIndex("by_isPublished_createdAt", (q) => q.eq("isPublished", true))
+                .collect();
+            
+            const count = prompts.filter(prompt => 
+                prompt.categoryIds.includes(category._id)
+            ).length;
+            
+            return {
+                ...category,
+                count
+            };
+        })
+    );
+    
+    return categoriesWithCounts;
+});
+
 export const create = mutation({
     args: { name: v.string(), slug: v.string() },
     handler: async ({ db, auth }, { name, slug }) => {
