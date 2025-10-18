@@ -1,4 +1,4 @@
-perfect — we can keep your v0.dev UI and swap the backend to **Convex** for data, auth, and server logic. Below is a clean, production-ready blueprint:
+v0.dev UI and swap the backend to **Convex** for data, auth, and server logic. Below is a clean, production-ready blueprint:
 
 * a Convex **schema** (collections + indexes),
 * the **queries/mutations/actions** you’ll need (search, filters, votes, copy counts, etc.),
@@ -115,13 +115,9 @@ You have two good paths:
 * ✅ Email magic link is supported (passwordless) via providers.
 * 🔧 Add `<ConvexAuthProvider>`; call `ctx.auth.getUserIdentity()` in functions.
 
-### Option B — **Clerk + Convex**
 
-* ✅ Best-in-class auth UI (email + Google out of the box).
-* 🔧 You’ll forward Clerk JWT to Convex; Convex verifies; `subject` becomes your stable user key.
-* 🔧 Create/maintain a `users` row on first call.
 
-**Recommendation:** If you’re happy with ready-made UIs, **Clerk** is great; otherwise **Convex Auth** keeps the stack lean. Either works perfectly here.
+**Recommendation:** If you’re happy with ready-made UIs, **Convex Auth** keeps the stack lean.
 
 ---
 
@@ -585,10 +581,738 @@ You can experiment (e.g., Wilson score, half-life decay).
 ## Quick auth decision
 
 * **Use Convex Auth** if you want **lean** setup with Google + email (passwordless) and you’re fine with Convex’s built-ins.
-* **Use Clerk** if you want **premium auth UIs** and flows (email + Google are trivial). The glue code above already fits; your Convex functions remain the same since they check `auth.getUserIdentity()` which Clerk enables via the Convex auth adapter.
 
-If you want, I can generate:
 
-* the **full `convex/` folder** with the code above wired to your collection names,
-* a **minimal Next.js client** for list/detail/submit pages,
-* and a **middleware** example to pass IP → `hashIp` for rate limiting.
+awesome — here’s a tight **POC + project structure** tailored for **Cursor** that you can paste in and run. It’s a minimal, working scaffold for your Sora Prompt Library using **Next.js (App Router) + Convex (DB + auth + server)** with Snackprompt-style cards, search, filters, copy counts, votes, and autoplay video previews.
+
+---
+
+# Project structure (drop into Cursor)
+
+```
+sora-prompts/
+├─ app/
+│  ├─ api/
+│  │  └─ iphash/route.ts                # server route to hash client IP for rate-limiting
+│  ├─ p/[slug]/page.tsx                 # prompt detail page
+│  ├─ layout.tsx
+│  ├─ page.tsx                          # home: search + filter + grid
+│  ├─ providers.tsx
+│  └─ globals.css
+├─ components/
+│  ├─ PromptCard.tsx
+│  ├─ SearchBar.tsx
+│  ├─ FilterSidebar.tsx
+│  └─ VideoAuto.tsx
+├─ convex/
+│  ├─ schema.ts                         # collections & indexes
+│  ├─ prompts.ts                        # list/search/create/get
+│  ├─ votes.ts                          # toggle upvote
+│  ├─ events.ts                         # copy/view logging + counters
+│  ├─ users.ts                          # ensure user profile row
+│  └─ _generated/                       # created by `npx convex dev`
+├─ lib/
+│  ├─ slug.ts
+│  └─ types.ts
+├─ public/
+│  └─ placeholder.jpg
+├─ .env.local.example
+├─ package.json
+├─ postcss.config.js
+├─ tailwind.config.ts
+├─ tsconfig.json
+└─ README.md
+```
+
+---
+
+## package.json
+
+```json
+{
+  "name": "sora-prompts",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy"
+  },
+  "dependencies": {
+    "next": "14.2.9",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "convex": "1.13.1",
+    "@convex-dev/auth": "0.5.3",
+    "lucide-react": "0.452.0",
+    "clsx": "2.1.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "10.4.20",
+    "postcss": "8.4.47",
+    "tailwindcss": "3.4.13",
+    "typescript": "5.6.3"
+  }
+}
+```
+
+> POC keeps auth simple (Convex Auth can be added next). You can ship browsing/copying/voting today; adding Google/email sign-in is a 10-min follow-up with `@convex-dev/auth`.
+
+---
+
+## convex/schema.ts
+
+```ts
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  users: defineTable({
+    userId: v.string(), // auth subject (fill when auth added)
+    email: v.optional(v.string()),
+    username: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
+    createdAt: v.number()
+  }).index("by_userId", ["userId"]),
+
+  categories: defineTable({
+    name: v.string(),
+    slug: v.string(),
+    createdAt: v.number()
+  }).index("by_slug", ["slug"]),
+
+  prompts: defineTable({
+    authorId: v.optional(v.id("users")),
+    title: v.string(),
+    prompt: v.string(),
+    videoUrl: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    meta: v.optional(v.any()),
+    isPublished: v.boolean(),
+    categoryIds: v.array(v.id("categories")),
+    copies: v.number(),
+    votes: v.number(),
+    views: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    slug: v.string(),
+    searchable: v.string()
+  })
+    .index("by_slug", ["slug"])
+    .index("by_isPublished_createdAt", ["isPublished", "createdAt"])
+    .searchIndex("prompts_search", {
+      searchField: "searchable",
+      filterFields: ["isPublished"]
+    }),
+
+  votes: defineTable({
+    promptId: v.id("prompts"),
+    userId: v.id("users"),
+    value: v.number(),
+    createdAt: v.number()
+  }).index("by_prompt_user", ["promptId", "userId"]),
+
+  copies: defineTable({
+    promptId: v.id("prompts"),
+    userId: v.optional(v.id("users")),
+    ipHash: v.optional(v.string()),
+    createdAt: v.number()
+  }).index("by_prompt", ["promptId"]),
+
+  views: defineTable({
+    promptId: v.id("prompts"),
+    userId: v.optional(v.id("users")),
+    ipHash: v.optional(v.string()),
+    createdAt: v.number()
+  }).index("by_prompt", ["promptId"]),
+
+  favorites: defineTable({
+    promptId: v.id("prompts"),
+    userId: v.id("users"),
+    createdAt: v.number()
+  }).index("by_user_prompt", ["userId", "promptId"])
+});
+```
+
+---
+
+## convex/users.ts
+
+```ts
+import { query, mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export const me = query(async ({ db }) => {
+  // When auth is wired, look up by subject; for now just null.
+  return null;
+});
+
+export const ensureUser = mutation({
+  args: {
+    userId: v.string(),
+    email: v.optional(v.string()),
+    username: v.optional(v.string()),
+    avatarUrl: v.optional(v.string())
+  },
+  handler: async ({ db }, args) => {
+    const existing = await db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .unique();
+    if (existing) return existing._id;
+    return await db.insert("users", {
+      ...args,
+      createdAt: Date.now()
+    });
+  }
+});
+```
+
+---
+
+## convex/prompts.ts
+
+```ts
+import { query, mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+type SortKey = "trending" | "most_copied" | "most_upvoted" | "newest";
+
+const score = (p: any) => {
+  const ageH = Math.max((Date.now() - p.createdAt) / 3600000, 1);
+  return (p.votes * 3 + p.copies * 1 + p.views * 0.25) / ageH;
+};
+
+export const list = query({
+  args: {
+    q: v.optional(v.string()),
+    categoryIds: v.optional(v.array(v.id("categories"))),
+    sort: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.string())
+  },
+  handler: async ({ db }, { q, categoryIds, sort = "trending", limit = 24, cursor }) => {
+    let res;
+    if (q && q.trim()) {
+      res = await db
+        .query("prompts")
+        .withSearchIndex("prompts_search", (s) =>
+          s.search("searchable", q).eq("isPublished", true)
+        )
+        .paginate({ numItems: limit, cursor });
+    } else {
+      res = await db
+        .query("prompts")
+        .withIndex("by_isPublished_createdAt", (i) => i.eq("isPublished", true))
+        .order("desc")
+        .paginate({ numItems: limit, cursor });
+    }
+    let items = res.page;
+
+    if (categoryIds?.length) {
+      items = items.filter((p) => p.categoryIds.some((id: any) => categoryIds.includes(id)));
+    }
+
+    items.sort((a, b) => {
+      switch (sort as SortKey) {
+        case "most_copied": return b.copies - a.copies;
+        case "most_upvoted": return b.votes - a.votes;
+        case "newest": return b.createdAt - a.createdAt;
+        default: return score(b) - score(a);
+      }
+    });
+
+    return { items, cursor: res.continueCursor };
+  }
+});
+
+export const bySlug = query({
+  args: { slug: v.string() },
+  handler: async ({ db }, { slug }) => {
+    const p = await db.query("prompts").withIndex("by_slug", (q) => q.eq("slug", slug)).unique();
+    if (!p || !p.isPublished) return null;
+    return p;
+  }
+});
+
+export const create = mutation({
+  args: {
+    title: v.string(),
+    prompt: v.string(),
+    videoUrl: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    meta: v.optional(v.any()),
+    categoryIds: v.array(v.id("categories")),
+    slug: v.string()
+  },
+  handler: async ({ db }, args) => {
+    const now = Date.now();
+    return await db.insert("prompts", {
+      authorId: undefined, // fill when auth is added
+      title: args.title.trim(),
+      prompt: args.prompt.trim(),
+      videoUrl: args.videoUrl,
+      notes: args.notes,
+      meta: args.meta,
+      isPublished: true,
+      categoryIds: args.categoryIds,
+      copies: 0,
+      votes: 0,
+      views: 0,
+      createdAt: now,
+      updatedAt: now,
+      slug: args.slug,
+      searchable: `${args.title}\n${args.prompt}\n${args.notes ?? ""}`
+    });
+  }
+});
+```
+
+---
+
+## convex/votes.ts
+
+```ts
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export const toggle = mutation({
+  args: { promptId: v.id("prompts"), userId: v.id("users") },
+  handler: async ({ db }, { promptId, userId }) => {
+    const existing = await db
+      .query("votes")
+      .withIndex("by_prompt_user", (q) => q.eq("promptId", promptId).eq("userId", userId))
+      .unique();
+
+    let delta = 0;
+    if (!existing || existing.value === 0) {
+      if (existing) await db.patch(existing._id, { value: 1 });
+      else await db.insert("votes", { promptId, userId, value: 1, createdAt: Date.now() });
+      delta = 1;
+    } else {
+      await db.patch(existing._id, { value: 0 });
+      delta = -1;
+    }
+
+    const p = await db.get(promptId);
+    if (p) await db.patch(promptId, { votes: p.votes + delta, updatedAt: Date.now() });
+
+    return { delta };
+  }
+});
+```
+
+---
+
+## convex/events.ts
+
+```ts
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export const copy = mutation({
+  args: { promptId: v.id("prompts"), userId: v.optional(v.id("users")), ipHash: v.optional(v.string()) },
+  handler: async ({ db }, { promptId, userId, ipHash }) => {
+    // naive rate limit: 1/min per ipHash per prompt
+    if (ipHash) {
+      const since = Date.now() - 60_000;
+      const recent = (await db.query("copies").withIndex("by_prompt", (q) => q.eq("promptId", promptId)).collect())
+        .some((e) => e.ipHash === ipHash && e.createdAt > since);
+      if (recent) return { ok: false, reason: "rate_limited" };
+    }
+
+    await db.insert("copies", { promptId, userId, ipHash, createdAt: Date.now() });
+    const p = await db.get(promptId);
+    if (p) await db.patch(promptId, { copies: p.copies + 1, updatedAt: Date.now() });
+    return { ok: true };
+  }
+});
+
+export const view = mutation({
+  args: { promptId: v.id("prompts"), userId: v.optional(v.id("users")), ipHash: v.optional(v.string()) },
+  handler: async ({ db }, { promptId, userId, ipHash }) => {
+    const since = Date.now() - 60_000;
+    if (ipHash) {
+      const recent = (await db.query("views").withIndex("by_prompt", (q) => q.eq("promptId", promptId)).collect())
+        .some((e) => e.ipHash === ipHash && e.createdAt > since);
+      if (recent) return { ok: false, reason: "rate_limited" };
+    }
+    await db.insert("views", { promptId, userId, ipHash, createdAt: Date.now() });
+    const p = await db.get(promptId);
+    if (p) await db.patch(promptId, { views: p.views + 1, updatedAt: Date.now() });
+    return { ok: true };
+  }
+});
+```
+
+---
+
+## app/api/iphash/route.ts
+
+```ts
+import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
+
+export async function GET(req: NextRequest) {
+  const fwd = req.headers.get("x-forwarded-for");
+  const ip = (fwd?.split(",")[0] || req.ip || "0.0.0.0").trim();
+  const ipHash = crypto.createHash("sha256").update(ip).digest("hex");
+  return NextResponse.json({ ipHash });
+}
+```
+
+---
+
+## app/providers.tsx
+
+```tsx
+"use client";
+import { ConvexProvider, ConvexReactClient } from "convex/react";
+
+const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+
+export default function Providers({ children }: { children: React.ReactNode }) {
+  return <ConvexProvider client={convex}>{children}</ConvexProvider>;
+}
+```
+
+---
+
+## app/layout.tsx
+
+```tsx
+import "./globals.css";
+import Providers from "./providers";
+
+export const metadata = { title: "Sora Prompt Library" };
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body className="min-h-dvh bg-neutral-950 text-neutral-100">
+        <div className="mx-auto max-w-7xl p-4">
+          <header className="flex items-center gap-4 py-2">
+            <div className="font-bold text-xl">Sora Prompts</div>
+            <div className="ml-auto">
+              {/* sign-in placeholder; wire Convex Auth later */}
+              <button className="rounded-lg border border-neutral-800 px-3 py-1.5">Sign in</button>
+            </div>
+          </header>
+          <Providers>{children}</Providers>
+        </div>
+      </body>
+    </html>
+  );
+}
+```
+
+---
+
+## components/VideoAuto.tsx
+
+```tsx
+"use client";
+import { useEffect, useRef } from "react";
+
+export default function VideoAuto({ src }: { src?: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => (e.isIntersecting ? el.play().catch(() => {}) : el.pause())),
+      { threshold: 0.25 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  if (!src) return null;
+  return (
+    <video
+      ref={ref}
+      src={src}
+      muted
+      loop
+      playsInline
+      className="aspect-video w-full rounded-lg bg-black/40"
+    />
+  );
+}
+```
+
+---
+
+## components/PromptCard.tsx
+
+```tsx
+"use client";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import VideoAuto from "./VideoAuto";
+
+export default function PromptCard({ p }: { p: any }) {
+  const copyMut = useMutation(api.events.copy);
+  const voteMut = useMutation(api.votes.toggle);
+
+  const copyNow = async () => {
+    await navigator.clipboard.writeText(p.prompt);
+    const { ipHash } = await fetch("/api/iphash").then((r) => r.json());
+    copyMut({ promptId: p._id, ipHash });
+    // optimistic UI bump (optional: state)
+    p.copies += 1;
+  };
+
+  const voteNow = async () => {
+    // POC: using a fake user (replace with real userId when auth is added)
+    const fakeUserId = p.authorId || p._id; // placeholder
+    const res = await voteMut({ promptId: p._id, userId: fakeUserId });
+    p.votes += res.delta;
+  };
+
+  return (
+    <div className="rounded-2xl border border-neutral-800 p-4 shadow-sm">
+      <h3 className="line-clamp-1 text-lg font-semibold">{p.title}</h3>
+      <p className="mt-1 line-clamp-2 text-sm text-neutral-300">{p.prompt}</p>
+      <div className="mt-3">
+        <VideoAuto src={p.videoUrl} />
+      </div>
+      <div className="mt-3 flex items-center gap-3 text-sm">
+        <button onClick={copyNow} className="rounded-lg bg-neutral-800 px-3 py-1.5">
+          Copy · {p.copies}
+        </button>
+        <button onClick={voteNow} className="rounded-lg bg-neutral-800 px-3 py-1.5">
+          Upvote · {p.votes}
+        </button>
+        <a href={`/p/${p.slug}`} className="text-neutral-300 underline-offset-2 hover:underline">
+          Open
+        </a>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## components/SearchBar.tsx
+
+```tsx
+"use client";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+
+export default function SearchBar() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const [q, setQ] = useState(params.get("q") ?? "");
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const sp = new URLSearchParams(Array.from(params.entries()));
+      if (q) sp.set("q", q);
+      else sp.delete("q");
+      router.replace(`/?${sp.toString()}`);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  return (
+    <input
+      value={q}
+      onChange={(e) => setQ(e.target.value)}
+      placeholder="Search prompts…"
+      className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2 outline-none"
+    />
+  );
+}
+```
+
+---
+
+## components/FilterSidebar.tsx (stub)
+
+```tsx
+export default function FilterSidebar() {
+  return (
+    <aside className="hidden w-64 flex-none md:block">
+      <div className="sticky top-4 space-y-3">
+        <div className="text-sm text-neutral-400">Filters (categories, sort…) – wire later</div>
+      </div>
+    </aside>
+  );
+}
+```
+
+---
+
+## app/page.tsx (home grid)
+
+```tsx
+import { api } from "@/convex/_generated/api";
+import { fetchQuery } from "convex/nextjs";
+import PromptCard from "@/components/PromptCard";
+import SearchBar from "@/components/SearchBar";
+import FilterSidebar from "@/components/FilterSidebar";
+
+export default async function Home({ searchParams }: { searchParams: { q?: string; sort?: string } }) {
+  const q = searchParams.q || undefined;
+  const sort = (searchParams.sort as any) || "trending";
+
+  const { items } = await fetchQuery(api.prompts.list, {
+    q,
+    sort,
+    limit: 24
+  });
+
+  return (
+    <main className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-[16rem_1fr]">
+      <FilterSidebar />
+      <section>
+        <div className="mb-4">
+          <SearchBar />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((p) => (
+            <PromptCard key={p._id} p={p} />
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}
+```
+
+---
+
+## app/p/[slug]/page.tsx (detail)
+
+```tsx
+import { api } from "@/convex/_generated/api";
+import { fetchQuery } from "convex/nextjs";
+import VideoAuto from "@/components/VideoAuto";
+
+export default async function PromptDetail({ params }: { params: { slug: string } }) {
+  const prompt = await fetchQuery(api.prompts.bySlug, { slug: params.slug });
+  if (!prompt) return <div className="p-6 text-neutral-400">Not found.</div>;
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-4 p-2 md:p-6">
+      <h1 className="text-2xl font-semibold">{prompt.title}</h1>
+      <VideoAuto src={prompt.videoUrl} />
+      <div className="rounded-xl border border-neutral-800 p-4">
+        <div className="mb-2 text-sm text-neutral-400">Prompt</div>
+        <pre className="whitespace-pre-wrap break-words text-sm leading-relaxed">{prompt.prompt}</pre>
+        <button
+          onClick={async () => navigator.clipboard.writeText(prompt.prompt)}
+          className="mt-3 rounded-lg bg-neutral-800 px-3 py-1.5 text-sm"
+        >
+          Copy
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## lib/slug.ts
+
+```ts
+export function slugify(s: string) {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+}
+```
+
+---
+
+## app/globals.css (Tailwind base)
+
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+```
+
+---
+
+## tailwind.config.ts
+
+```ts
+import type { Config } from "tailwindcss";
+export default {
+  content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
+  theme: { extend: {} },
+  plugins: []
+} satisfies Config;
+```
+
+---
+
+## .env.local.example
+
+```
+NEXT_PUBLIC_CONVEX_URL=https://YOUR-CONVEX.deployment.convex.cloud
+```
+
+> When you run `npx convex dev`, it will print your Convex URL. Put it in `NEXT_PUBLIC_CONVEX_URL`.
+
+---
+
+## README.md (POC runbook)
+
+```md
+# Sora Prompt Library — POC (Next.js + Convex)
+
+## Quickstart
+1) `pnpm i` (or npm/yarn)
+2) In one terminal: `pnpm convex:dev` (creates `convex/_generated` + gives URL)
+3) Copy Convex URL into `.env.local` as `NEXT_PUBLIC_CONVEX_URL=...`
+4) In another terminal: `pnpm dev`
+5) Open http://localhost:3000
+
+## Seed a prompt (Cursor quick action)
+- Open `convex/prompts.ts`, temporarily export a `seed` mutation, or call `create` from the Convex dashboard with:
+  - title: "Cinematic Drone Flyover"
+  - prompt: "sora v2: cinematic drone shot over neon-lit city..."
+  - videoUrl: "https://your-sora-video-url.mp4"
+  - categoryIds: []
+  - slug: "cinematic-drone-flyover"
+
+## Next steps
+- Wire **auth** (Convex Auth):
+  - `pnpm add @convex-dev/auth`
+  - Add providers (Google + Email OTP).
+  - In server functions, replace fake `userId` with `ctx.auth.getUserIdentity()` lookup to `users`.
+- Add categories UI & filtering.
+- Replace vote fake user with real `users.ensureUser()` mapping.
+- Add "Submit Prompt" page to create new prompts.
+```
+
+---
+
+### How to add Convex Auth (Google + Email) later (summary)
+
+1. Install: `pnpm add @convex-dev/auth @convex-dev/auth/react`
+2. Create `app/api/auth/[...auth]/route.ts` using `@convex-dev/auth/nextjs` handlers.
+3. Wrap `<Providers>` with `AuthProvider`.
+4. In server functions, get identity with `auth.getUserIdentity()`, upsert user in `users`.
+5. Replace fake `userId` in `votes.toggle` call with the real one from the client (via `useAuth()` or a server action).
+
+---
+
+## Why this POC works for you
+
+* **Snackprompt-style cards**: title, clamped preview, **autoplay muted video**, copy & upvote counters.
+* **Anonymous browsing/copying** works; **voting** is ready to lock behind auth with one line change.
+* **Search/filter/sort** backed by Convex search index and simple trending score.
+* **Rate-limited copy/view** logging via a tiny IP-hash route.
+* Fits neatly with your existing **v0.dev** design; just swap the components/styles in.
+
+
