@@ -1,8 +1,7 @@
 "use client"
 
-import { Search, Sparkles } from "lucide-react"
+import { Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -11,20 +10,45 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ThemeToggle } from "./theme-toggle"
-import { useState } from "react"
-import { useQuery } from "convex/react"
+import { SearchBar } from "./search-bar"
+import { useQuery, useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
+import { useAuthActions } from "@convex-dev/auth/react"
+import { useAuth } from "@/contexts/auth-context"
 import Link from "next/link"
 
 export function Header() {
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [isSignedIn, setIsSignedIn] = useState(false)
+  const { isSignedIn, setIsSignedIn } = useAuth()
   const user = useQuery(api.users.me)
+  const { signIn, signOut } = useAuthActions()
+  const createDemoUser = useMutation(api.users.createDemoUser)
 
-  // For now, we'll use a simple state-based auth
-  // TODO: Implement real authentication
+  // Simple authentication - just create a temporary user
+  const handleSignIn = async () => {
+    try {
+      // Create a demo user in our database
+      await createDemoUser({
+        email: "demo@example.com",
+        username: "Demo User"
+      })
+      setIsSignedIn(true)
+    } catch (error) {
+      console.error("Sign in failed:", error)
+      // For demo purposes, just set signed in
+      setIsSignedIn(true)
+    }
+  }
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      setIsSignedIn(false)
+    } catch (error) {
+      console.error("Sign out failed:", error)
+      setIsSignedIn(false)
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -36,38 +60,10 @@ export function Header() {
         </Link>
 
         <div className="hidden md:flex flex-1 max-w-2xl mx-auto">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search prompts..."
-              className="w-full pl-10 bg-secondary border-border text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
+          <SearchBar />
         </div>
 
-        <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="md:hidden flex-shrink-0">
-              <Search className="h-5 w-5" />
-              <span className="sr-only">Search</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="top-[10%] translate-y-0">
-            <DialogHeader>
-              <DialogTitle>Search Prompts</DialogTitle>
-            </DialogHeader>
-            <div className="relative mt-4">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search prompts..."
-                className="w-full pl-10 bg-secondary border-border text-foreground placeholder:text-muted-foreground"
-                autoFocus
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
+        <SearchBar isMobile />
 
         <div className="flex-1 md:hidden" />
 
@@ -79,7 +75,7 @@ export function Header() {
           {!isSignedIn ? (
             <Button
               variant="ghost"
-              onClick={() => setIsSignedIn(true)}
+              onClick={handleSignIn}
               className="text-foreground text-sm md:text-base px-2 md:px-4"
             >
               Sign in
@@ -93,9 +89,9 @@ export function Header() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 md:h-9 md:w-9 rounded-full flex-shrink-0">
                     <Avatar className="h-8 w-8 md:h-9 md:w-9">
-                      <AvatarImage src={user?.avatarUrl || "/placeholder.svg?height=36&width=36"} alt={user?.username || "User"} />
+                      <AvatarImage src={(user as any)?.avatarUrl || "/placeholder.svg?height=36&width=36"} alt={(user as any)?.username || "User"} />
                       <AvatarFallback className="bg-primary text-primary-foreground">
-                        {user?.username?.[0] || "U"}
+                        {(user as any)?.username?.[0] || "U"}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -114,7 +110,7 @@ export function Header() {
                     <DropdownMenuItem>Settings</DropdownMenuItem>
                   </Link>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setIsSignedIn(false)}>Sign out</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSignOut}>Sign out</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>

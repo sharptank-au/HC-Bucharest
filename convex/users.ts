@@ -2,14 +2,29 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const me = query(async ({ db, auth }) => {
-    const identity = await auth.getUserIdentity();
-    if (!identity) return null;
+    // For now, return null until we get proper auth working
+    // TODO: Implement proper Convex Auth
+    return null;
+});
 
-    const user = await db
-        .query("users")
-        .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
-        .unique();
-    return user;
+export const createDemoUser = mutation({
+    args: {
+        email: v.optional(v.string()),
+        username: v.optional(v.string()),
+        avatarUrl: v.optional(v.string())
+    },
+    handler: async ({ db }, args) => {
+        // Create a demo user for authentication
+        const userId = await db.insert("users", {
+            userId: "demo-" + Date.now(),
+            email: args.email || "demo@example.com",
+            username: args.username || "Demo User",
+            avatarUrl: args.avatarUrl,
+            createdAt: Date.now()
+        });
+
+        return userId;
+    }
 });
 
 export const ensureUser = mutation({
@@ -18,22 +33,14 @@ export const ensureUser = mutation({
         username: v.optional(v.string()),
         avatarUrl: v.optional(v.string())
     },
-    handler: async ({ db, auth }, args) => {
-        const identity = await auth.getUserIdentity();
-        if (!identity) throw new Error("Not authenticated");
-
-        const existing = await db
-            .query("users")
-            .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
-            .unique();
-
-        if (existing) return existing._id;
-
+    handler: async ({ db }, args) => {
+        // For now, create a demo user
+        // TODO: Implement proper Convex Auth
         return await db.insert("users", {
-            userId: identity.subject,
-            email: args.email ?? identity.email ?? undefined,
-            username: args.username ?? identity.name ?? undefined,
-            avatarUrl: args.avatarUrl ?? identity.pictureUrl ?? undefined,
+            userId: "demo-" + Date.now(),
+            email: args.email || "demo@example.com",
+            username: args.username || "Demo User",
+            avatarUrl: args.avatarUrl,
             createdAt: Date.now()
         });
     }

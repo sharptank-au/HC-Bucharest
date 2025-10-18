@@ -4,18 +4,16 @@ import { v } from "convex/values";
 export const toggle = mutation({
     args: { promptId: v.id("prompts"), userId: v.optional(v.id("users")) },
     handler: async ({ db }, { promptId, userId }) => {
-        // For now, use a simple approach without auth
-        // TODO: Implement proper authentication
-
+        // For now, create a demo user if none provided
+        // TODO: Implement proper Convex Auth
         if (!userId) {
-            // Create a temporary user for demo purposes
-            const tempUser = await db.insert("users", {
-                userId: "temp-" + Date.now(),
+            const demoUser = await db.insert("users", {
+                userId: "demo-" + Date.now(),
                 email: "demo@example.com",
                 username: "Demo User",
                 createdAt: Date.now()
             });
-            userId = tempUser;
+            userId = demoUser;
         }
 
         const existing = await db

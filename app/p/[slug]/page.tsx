@@ -66,7 +66,8 @@ const relatedPrompts = [
   },
 ]
 
-export default function PromptDetailPage({ params }: { params: { slug: string } }) {
+export default async function PromptDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
   const isOwner = true // Set to true to test owner controls
   const promptStatus: "public" | "private" = "public"
 

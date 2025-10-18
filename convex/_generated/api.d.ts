@@ -8,8 +8,10 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
 import type * as categories from "../categories.js";
 import type * as events from "../events.js";
+import type * as http from "../http.js";
 import type * as prompts from "../prompts.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
@@ -30,8 +32,10 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
   categories: typeof categories;
   events: typeof events;
+  http: typeof http;
   prompts: typeof prompts;
   seed: typeof seed;
   users: typeof users;

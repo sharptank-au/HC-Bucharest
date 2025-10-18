@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/hooks/use-toast"
 import { useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
+import { useAuth } from "@/contexts/auth-context"
 import Link from "next/link"
 import { AuthModal } from "./auth-modal"
 
@@ -39,8 +40,11 @@ export function PromptCard({
   videoUrl,
   copyCount,
   upvotes,
-  isSignedIn = false,
+  isSignedIn: propIsSignedIn = false,
 }: PromptCardProps) {
+  const { isSignedIn: globalIsSignedIn } = useAuth()
+  const isSignedIn = globalIsSignedIn || propIsSignedIn
+
   const [isMuted, setIsMuted] = useState(true)
   const [localCopyCount, setLocalCopyCount] = useState(copyCount)
   const [localUpvotes, setLocalUpvotes] = useState(upvotes)
