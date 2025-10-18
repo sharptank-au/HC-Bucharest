@@ -14,11 +14,17 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ThemeToggle } from "./theme-toggle"
 import { useState } from "react"
+import { useQuery } from "convex/react"
+import { api } from "@/convex/_generated/api"
 import Link from "next/link"
 
 export function Header() {
-  const [isSignedIn, setIsSignedIn] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [isSignedIn, setIsSignedIn] = useState(false)
+  const user = useQuery(api.users.me)
+
+  // For now, we'll use a simple state-based auth
+  // TODO: Implement real authentication
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -87,8 +93,10 @@ export function Header() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 md:h-9 md:w-9 rounded-full flex-shrink-0">
                     <Avatar className="h-8 w-8 md:h-9 md:w-9">
-                      <AvatarImage src="/placeholder.svg?height=36&width=36" alt="User" />
-                      <AvatarFallback className="bg-primary text-primary-foreground">U</AvatarFallback>
+                      <AvatarImage src={user?.avatarUrl || "/placeholder.svg?height=36&width=36"} alt={user?.username || "User"} />
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {user?.username?.[0] || "U"}
+                      </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>

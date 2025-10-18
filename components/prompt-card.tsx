@@ -78,9 +78,7 @@ export function PromptCard({
     }
 
     try {
-      // For now, use a placeholder user ID - this will be replaced with real auth
-      const fakeUserId = id // placeholder
-      const { delta } = await voteMutation({ promptId: id as any, userId: fakeUserId as any })
+      const { delta } = await voteMutation({ promptId: id as any })
       setLocalUpvotes((prev) => prev + delta)
       setHasUpvoted(delta > 0)
     } catch (error) {

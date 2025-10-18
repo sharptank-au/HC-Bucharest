@@ -18,6 +18,7 @@ export default function Home() {
     limit: 24
   })
 
+  const user = useQuery(api.users.me)
   const prompts = promptsData?.items
   const isLoading = promptsData === undefined
 
@@ -69,7 +70,7 @@ export default function Home() {
                   videoUrl={prompt.videoUrl}
                   copyCount={prompt.copies}
                   upvotes={prompt.votes}
-                  isSignedIn={false}
+                  isSignedIn={!!user}
                 />
               ))}
             </div>
