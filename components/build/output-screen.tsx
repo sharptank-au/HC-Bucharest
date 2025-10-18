@@ -11,7 +11,7 @@ interface OutputScreenProps {
 }
 
 export function OutputScreen({ onBack }: OutputScreenProps) {
-    const { useCase, mode, highLevelDescription, context, shots, dialogue, aspectRatio } = usePromptStore()
+    const { useCase, mode, highLevelDescription, context, shots, dialogue, aspectRatio, aiEnhancedPrompt } = usePromptStore()
     const [copied, setCopied] = useState(false)
 
     // Generate text output
@@ -160,8 +160,11 @@ export function OutputScreen({ onBack }: OutputScreenProps) {
 
             {/* Output Tabs */}
             <Tabs defaultValue="text" className="w-full">
-                <TabsList className="grid w-full max-w-md grid-cols-2">
-                    <TabsTrigger value="text">Formatted Text</TabsTrigger>
+                <TabsList className="grid w-full max-w-lg grid-cols-3">
+                    <TabsTrigger value="text">Original</TabsTrigger>
+                    <TabsTrigger value="ai-enhanced" disabled={!aiEnhancedPrompt}>
+                        {aiEnhancedPrompt ? "AI Enhanced" : "AI Enhanced"}
+                    </TabsTrigger>
                     <TabsTrigger value="json">JSON</TabsTrigger>
                 </TabsList>
 
@@ -210,6 +213,67 @@ export function OutputScreen({ onBack }: OutputScreenProps) {
                         <div className="p-6">
                             <pre className="whitespace-pre-wrap font-mono text-sm text-foreground">{textOutput}</pre>
                         </div>
+                    </Card>
+                </TabsContent>
+
+                {/* AI Enhanced Output */}
+                <TabsContent value="ai-enhanced" className="space-y-4">
+                    <Card className="relative">
+                        {aiEnhancedPrompt ? (
+                            <>
+                                <div className="absolute right-4 top-4 flex gap-2">
+                                    <Button variant="outline" size="sm" onClick={() => handleCopy(aiEnhancedPrompt)}>
+                                        {copied ? (
+                                            <>
+                                                <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Copied
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                                    />
+                                                </svg>
+                                                Copy
+                                            </>
+                                        )}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleDownload(aiEnhancedPrompt, `ai-enhanced-sora-prompt-${Date.now()}.txt`)}
+                                    >
+                                        <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                            />
+                                        </svg>
+                                        Download
+                                    </Button>
+                                </div>
+                                <div className="p-6">
+                                    <div className="mb-4 flex items-center space-x-2">
+                                        <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                                        <span className="text-sm font-medium text-green-700">AI Enhanced</span>
+                                        <span className="text-xs text-muted-foreground">via GPT-4o</span>
+                                    </div>
+                                    <pre className="whitespace-pre-wrap font-mono text-sm text-foreground">{aiEnhancedPrompt}</pre>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="p-6 text-center">
+                                <p className="text-sm text-muted-foreground">No AI enhancement available. Generate a prompt first.</p>
+                            </div>
+                        )}
                     </Card>
                 </TabsContent>
 

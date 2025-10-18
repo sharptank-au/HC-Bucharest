@@ -137,6 +137,9 @@ importers:
       nextjs:
         specifier: link:@convex-dev/auth/nextjs
         version: link:@convex-dev/auth/nextjs
+      openai:
+        specifier: ^6.5.0
+        version: 6.5.0(zod@3.25.67)
       react:
         specifier: ^19.2.0
         version: 19.2.0
@@ -1780,6 +1783,18 @@ packages:
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
     engines: {node: '>=0.10.0'}
+
+  openai@6.5.0:
+    resolution: {integrity: sha512-bNqJ15Ijbs41KuJ2iYz/mGAruFHzQQt7zXo4EvjNLoB64aJdgn1jlMeDTsXjEg+idVYafg57QB/5Rd16oqvZ6A==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   path-to-regexp@6.3.0:
     resolution: {integrity: sha512-Yhpw4T9C6hPpgPeA28us07OJeqZ5EzQTkbfwuhsUg0c237RomFoETJgmp2sa3F/41gfLE6G5cqcYwznmeEeOlQ==}
@@ -3457,6 +3472,10 @@ snapshots:
   oauth4webapi@3.8.2: {}
 
   object-assign@4.1.1: {}
+
+  openai@6.5.0(zod@3.25.67):
+    optionalDependencies:
+      zod: 3.25.67
 
   path-to-regexp@6.3.0: {}
 

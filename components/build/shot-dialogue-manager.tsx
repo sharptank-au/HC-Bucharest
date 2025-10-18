@@ -15,8 +15,24 @@ interface ShotDialogueManagerProps {
 }
 
 export function ShotDialogueManager({ onNext, onBack }: ShotDialogueManagerProps) {
-    const { shots, dialogue, addShot, updateShot, deleteShot, addDialogue, updateDialogue, deleteDialogue, mode } =
-        usePromptStore()
+    const {
+        shots,
+        dialogue,
+        addShot,
+        updateShot,
+        deleteShot,
+        addDialogue,
+        updateDialogue,
+        deleteDialogue,
+        mode,
+        useCase,
+        highLevelDescription,
+        context,
+        aspectRatio,
+        setAiEnhancedPrompt
+    } = usePromptStore()
+
+    const [isProcessing, setIsProcessing] = useState(false)
 
     // Shot form state
     const [shotForm, setShotForm] = useState({
@@ -121,6 +137,51 @@ export function ShotDialogueManager({ onNext, onBack }: ShotDialogueManagerProps
             speaker: line.speaker,
             text: line.text,
         })
+    }
+
+    const handleGeneratePrompt = async () => {
+        try {
+            setIsProcessing(true)
+
+            // Trigger OpenAI processing
+            const response = await fetch('/api/build-prompts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    useCase,
+                    mode,
+                    highLevelDescription,
+                    context,
+                    shots,
+                    dialogue,
+                    aspectRatio
+                }),
+            })
+
+            if (!response.ok) {
+                throw new Error('Failed to process AI enhancement')
+            }
+
+            const result = await response.json()
+
+            if (result.success) {
+                // Store the AI-enhanced prompt in the store for the output screen
+                setAiEnhancedPrompt(result.data.enhancedTextPrompt)
+                console.log('AI enhancement completed:', result.data)
+            }
+
+            // Move to next step
+            onNext()
+
+        } catch (error) {
+            console.error('Error generating prompt:', error)
+            // Still move to next step to show output screen
+            onNext()
+        } finally {
+            setIsProcessing(false)
+        }
     }
 
     return (
@@ -420,11 +481,28 @@ export function ShotDialogueManager({ onNext, onBack }: ShotDialogueManagerProps
                     </svg>
                     Back
                 </Button>
-                <Button size="lg" onClick={onNext} className="min-w-[200px]">
-                    Generate Prompt
-                    <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                <Button
+                    size="lg"
+                    onClick={handleGeneratePrompt}
+                    className="min-w-[200px]"
+                    disabled={isProcessing}
+                >
+                    {isProcessing ? (
+                        <>
+                            <svg className="mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Processing...
+                        </>
+                    ) : (
+                        <>
+                            Generate Prompt
+                            <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                        </>
+                    )}
                 </Button>
             </div>
         </div>

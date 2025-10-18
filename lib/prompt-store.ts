@@ -4,6 +4,7 @@ import { create } from "zustand"
 import type { PromptData, Shot, DialogueLine, AspectRatio } from "./types"
 
 interface PromptStore extends PromptData {
+    aiEnhancedPrompt: string | null
     setUseCase: (id: string, title: string, tone: string, aspectRatio: AspectRatio) => void
     setMode: (highLevel: boolean, detailedShots: boolean) => void
     setHighLevelDescription: (description: string) => void
@@ -17,6 +18,7 @@ interface PromptStore extends PromptData {
     updateDialogue: (order: number, dialogue: Partial<DialogueLine>) => void
     deleteDialogue: (order: number) => void
     reorderDialogue: (fromOrder: number, toOrder: number) => void
+    setAiEnhancedPrompt: (prompt: string | null) => void
     reset: () => void
 }
 
@@ -46,6 +48,7 @@ const initialState: PromptData = {
 
 export const usePromptStore = create<PromptStore>((set) => ({
     ...initialState,
+    aiEnhancedPrompt: null,
     setUseCase: (id, title, tone, aspectRatio) => set({ useCase: { id, title, aspectRatio, tone } }),
     setMode: (highLevel, detailedShots) => set({ mode: { highLevel, detailedShots } }),
     setHighLevelDescription: (description) => set({ highLevelDescription: description }),
@@ -89,5 +92,6 @@ export const usePromptStore = create<PromptStore>((set) => ({
             dialogue.splice(toOrder, 0, removed)
             return { dialogue: dialogue.map((d, i) => ({ ...d, order: i + 1 })) }
         }),
-    reset: () => set(initialState),
+    setAiEnhancedPrompt: (prompt) => set({ aiEnhancedPrompt: prompt }),
+    reset: () => set({ ...initialState, aiEnhancedPrompt: null }),
 }))
