@@ -583,14 +583,13 @@ You can experiment (e.g., Wilson score, half-life decay).
 * **Use Convex Auth** if you want **lean** setup with Google + email (passwordless) and you’re fine with Convex’s built-ins.
 
 
-awesome — here’s a tight **POC + project structure** tailored for **Cursor** that you can paste in and run. It’s a minimal, working scaffold for your Sora Prompt Library using **Next.js (App Router) + Convex (DB + auth + server)** with Snackprompt-style cards, search, filters, copy counts, votes, and autoplay video previews.
+awesome — here’s a tight **POC + project structure** tailored for **Cursor** that you can paste in and run. It’s a minimal, working scaffold for your PROMPTPLAY Library for AI video prompts using **Next.js (App Router) + Convex (DB + auth + server)** with Snackprompt-style cards, search, filters, copy counts, votes, and autoplay video previews.
 
 ---
 
 # Project structure (drop into Cursor)
 
 ```
-sora-prompts/
 ├─ app/
 │  ├─ api/
 │  │  └─ iphash/route.ts                # server route to hash client IP for rate-limiting
@@ -630,7 +629,7 @@ sora-prompts/
 
 ```json
 {
-  "name": "sora-prompts",
+  "name": "promptplay",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -985,7 +984,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 import "./globals.css";
 import Providers from "./providers";
 
-export const metadata = { title: "Sora Prompt Library" };
+export const metadata = { title: "PromptPlay AI video prompts" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -993,7 +992,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh bg-neutral-950 text-neutral-100">
         <div className="mx-auto max-w-7xl p-4">
           <header className="flex items-center gap-4 py-2">
-            <div className="font-bold text-xl">Sora Prompts</div>
+            <div className="font-bold text-xl">PromptPlay</div>
             <div className="ml-auto">
               {/* sign-in placeholder; wire Convex Auth later */}
               <button className="rounded-lg border border-neutral-800 px-3 py-1.5">Sign in</button>
@@ -1268,7 +1267,7 @@ NEXT_PUBLIC_CONVEX_URL=https://YOUR-CONVEX.deployment.convex.cloud
 ## README.md (POC runbook)
 
 ```md
-# Sora Prompt Library — POC (Next.js + Convex)
+# PromptPlay AI video prompt library — POC (Next.js + Convex)
 
 ## Quickstart
 1) `pnpm i` (or npm/yarn)
