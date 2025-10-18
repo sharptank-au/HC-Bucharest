@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
+import { useMutation } from "convex/react"
+import { api } from "@/convex/_generated/api"
 import Link from "next/link"
 import { AuthModal } from "./auth-modal"
 
@@ -47,9 +49,21 @@ export function PromptCard({
   const [showAuthModal, setShowAuthModal] = useState(false)
   const { toast } = useToast()
 
+  const copyMutation = useMutation(api.events.copy)
+  const voteMutation = useMutation(api.votes.toggle)
+
   const handleCopy = async () => {
     await navigator.clipboard.writeText(prompt)
     setLocalCopyCount((prev) => prev + 1)
+
+    // Get IP hash for rate limiting
+    try {
+      const { ipHash } = await fetch("/api/iphash").then((r) => r.json())
+      await copyMutation({ promptId: id as any, ipHash })
+    } catch (error) {
+      console.error("Failed to log copy:", error)
+    }
+
     toast({
       title: "Copied!",
       description: "Prompt copied to clipboard",
@@ -57,14 +71,25 @@ export function PromptCard({
     })
   }
 
-  const handleUpvote = () => {
+  const handleUpvote = async () => {
     if (!isSignedIn) {
       setShowAuthModal(true)
       return
     }
-    if (!hasUpvoted) {
-      setLocalUpvotes((prev) => prev + 1)
-      setHasUpvoted(true)
+
+    try {
+      // For now, use a placeholder user ID - this will be replaced with real auth
+      const fakeUserId = id // placeholder
+      const { delta } = await voteMutation({ promptId: id as any, userId: fakeUserId as any })
+      setLocalUpvotes((prev) => prev + delta)
+      setHasUpvoted(delta > 0)
+    } catch (error) {
+      console.error("Failed to vote:", error)
+      toast({
+        title: "Error",
+        description: "Failed to vote. Please try again.",
+        variant: "destructive"
+      })
     }
   }
 
@@ -103,9 +128,8 @@ export function PromptCard({
                   className="absolute top-3 right-3 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors z-10"
                 >
                   <Bookmark
-                    className={`h-4 w-4 transition-colors ${
-                      isBookmarked ? "fill-primary text-primary" : "text-foreground"
-                    }`}
+                    className={`h-4 w-4 transition-colors ${isBookmarked ? "fill-primary text-primary" : "text-foreground"
+                      }`}
                   />
                 </button>
                 <button
@@ -127,9 +151,8 @@ export function PromptCard({
                   className="absolute top-3 right-3 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors z-10"
                 >
                   <Bookmark
-                    className={`h-4 w-4 transition-colors ${
-                      isBookmarked ? "fill-primary text-primary" : "text-foreground"
-                    }`}
+                    className={`h-4 w-4 transition-colors ${isBookmarked ? "fill-primary text-primary" : "text-foreground"
+                      }`}
                   />
                 </button>
               </div>
@@ -191,9 +214,8 @@ export function PromptCard({
                   variant="outline"
                   size="sm"
                   onClick={handleUpvote}
-                  className={`flex-1 border-border hover:bg-secondary ${
-                    hasUpvoted ? "text-primary border-primary" : "text-foreground"
-                  }`}
+                  className={`flex-1 border-border hover:bg-secondary ${hasUpvoted ? "text-primary border-primary" : "text-foreground"
+                    }`}
                 >
                   <Heart className={`h-4 w-4 mr-1.5 ${hasUpvoted ? "fill-primary" : ""}`} />
                   {localUpvotes}
